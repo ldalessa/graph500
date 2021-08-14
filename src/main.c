@@ -21,6 +21,7 @@
 #include "../generator/utils.h"
 #include "aml.h"
 #include "common.h"
+#include "csr_reference.h"
 #include <math.h>
 #include <assert.h>
 #include <string.h>
@@ -31,23 +32,44 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-void print_mmio(int scale, tuple_graph* tg, const char* name)
+extern oned_csr_graph g;
+
+/* static void print_mmio(int scale, tuple_graph* tg, const char* name) */
+/* { */
+/*   FILE* f = fopen(name, "w"); */
+/*   if (!f) abort(); */
+
+/*   fprintf(f, "%%%%MatrixMarket matrix coordinate real symmetric\n"); */
+/*   fprintf(f, "%%\n"); */
+
+/*   ITERATE_TUPLE_GRAPH_BEGIN((tg), buf, bufsize, wbuf) { */
+/*     fprintf(f, "%d %d %ld\n", 1 << scale, 1 << scale, bufsize); */
+/*     ptrdiff_t j; */
+/*     for (j = 0; j < bufsize; ++j) { */
+/*       int64_t v0 = get_v0_from_edge(&buf[j]); */
+/*       int64_t v1 = get_v1_from_edge(&buf[j]); */
+/*       fprintf(f, "%ld %ld 1\n", v0 + 1, v1 + 1); */
+/*     } */
+/*   } ITERATE_TUPLE_GRAPH_END; */
+/* } */
+
+static void print_mmio(int scale, oned_csr_graph* g, const char* name)
 {
+  int64_t* column = g->column;
+
   FILE* f = fopen(name, "w");
   if (!f) abort();
 
   fprintf(f, "%%%%MatrixMarket matrix coordinate real symmetric\n");
   fprintf(f, "%%\n");
 
-  ITERATE_TUPLE_GRAPH_BEGIN((tg), buf, bufsize, wbuf) {
-    fprintf(f, "%d %d %ld\n", 1 << scale, 1 << scale, bufsize);
-    ptrdiff_t j;
-    for (j = 0; j < bufsize; ++j) {
-      int64_t v0 = get_v0_from_edge(&buf[j]);
-      int64_t v1 = get_v1_from_edge(&buf[j]);
-      fprintf(f, "%ld %ld 1\n", v0 + 1, v1 + 1);
+  fprintf(f, "%d %d %ld\n", 1 << scale, 1 << scale, g->nlocaledges);
+
+  for (int i = 0; i < g->nlocalverts; ++i) {
+    for (int j = g->rowstarts[i]; j < g->rowstarts[i+1]; ++j) {
+      fprintf(f, "%ld %ld 1\n", i + 1, COLUMN(j) + 1);
     }
-  } ITERATE_TUPLE_GRAPH_END;
+  }
 }
 
 int isisolated(int64_t v);
@@ -311,11 +333,6 @@ int main(int argc, char** argv) {
         fprintf(stderr, "graph_generation:               %f s\n", make_graph_time);
     }
 
-    if (argc > 3) {
-      print_mmio(SCALE, &tg, argv[3]);
-      return 0;
-    }
-
     /* Make user's graph data structure. */
     double data_struct_start = MPI_Wtime();
     make_graph_data_structure(&tg);
@@ -323,6 +340,12 @@ int main(int argc, char** argv) {
     double data_struct_time = data_struct_stop - data_struct_start;
     if (rank == 0) { /* Not an official part of the results */
         fprintf(stderr, "construction_time:              %f s\n", data_struct_time);
+    }
+
+    if (argc > 3) {
+      /* print_mmio(SCALE, &tg, argv[3]); */
+      print_mmio(SCALE, &g, argv[3]);
+      return 0;
     }
 
     //generate non-isolated roots
@@ -461,7 +484,13 @@ int main(int argc, char** argv) {
         get_edge_count_for_teps(&edge_visit_count);
         edge_counts[bfs_root_idx] = (double)edge_visit_count;
         if (rank == 0) {
-          fprintf(stderr, "Time for BFS %d is %f (root:%ld, te:%ld)\n", bfs_root_idx, bfs_times[bfs_root_idx], root, edge_visit_count);
+          int sum = 0;
+          for (int i = 0; i < nlocalverts; ++i) {
+            /* printf("%d %f\n", i, shortest[i]); */
+            sum += (shortest[i] != -1.0);
+          }
+          fprintf(stderr, "Time for BFS %d is %f (root:%ld, te:%ld, count:%d, nlocal:%ld)\n", bfs_root_idx, bfs_times[bfs_root_idx], root, edge_visit_count,sum,nlocalverts);
+          return 0;
         }
         if (rank == 0) fprintf(stderr, "TEPS for SSSP %d is %g\n", bfs_root_idx, edge_counts[bfs_root_idx] / sssp_times[bfs_root_idx]);
 
