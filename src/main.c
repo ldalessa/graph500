@@ -484,13 +484,7 @@ int main(int argc, char** argv) {
         get_edge_count_for_teps(&edge_visit_count);
         edge_counts[bfs_root_idx] = (double)edge_visit_count;
         if (rank == 0) {
-          int sum = 0;
-          for (int i = 0; i < nlocalverts; ++i) {
-            /* printf("%d %f\n", i, shortest[i]); */
-            sum += (shortest[i] != -1.0);
-          }
-          fprintf(stderr, "Time for BFS %d is %f (root:%ld, te:%ld, count:%d, nlocal:%ld)\n", bfs_root_idx, bfs_times[bfs_root_idx], root, edge_visit_count,sum,nlocalverts);
-          return 0;
+          fprintf(stderr, "Time for BFS %d is %f (root:%ld, te:%ld)\n", bfs_root_idx, bfs_times[bfs_root_idx], root, edge_visit_count);
         }
         if (rank == 0) fprintf(stderr, "TEPS for SSSP %d is %g\n", bfs_root_idx, edge_counts[bfs_root_idx] / sssp_times[bfs_root_idx]);
 
