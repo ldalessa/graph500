@@ -34,25 +34,6 @@
 
 extern oned_csr_graph g;
 
-/* static void print_mmio(int scale, tuple_graph* tg, const char* name) */
-/* { */
-/*   FILE* f = fopen(name, "w"); */
-/*   if (!f) abort(); */
-
-/*   fprintf(f, "%%%%MatrixMarket matrix coordinate real symmetric\n"); */
-/*   fprintf(f, "%%\n"); */
-
-/*   ITERATE_TUPLE_GRAPH_BEGIN((tg), buf, bufsize, wbuf) { */
-/*     fprintf(f, "%d %d %ld\n", 1 << scale, 1 << scale, bufsize); */
-/*     ptrdiff_t j; */
-/*     for (j = 0; j < bufsize; ++j) { */
-/*       int64_t v0 = get_v0_from_edge(&buf[j]); */
-/*       int64_t v1 = get_v1_from_edge(&buf[j]); */
-/*       fprintf(f, "%ld %ld 1\n", v0 + 1, v1 + 1); */
-/*     } */
-/*   } ITERATE_TUPLE_GRAPH_END; */
-/* } */
-
 static void print_mmio(int scale, oned_csr_graph* g, const char* name)
 {
   int64_t* column = g->column;
@@ -67,7 +48,11 @@ static void print_mmio(int scale, oned_csr_graph* g, const char* name)
 
   for (int i = 0; i < g->nlocalverts; ++i) {
     for (int j = g->rowstarts[i]; j < g->rowstarts[i+1]; ++j) {
+#ifdef SSSP
+      fprintf(f, "%ld %ld %f\n", i + 1, COLUMN(j) + 1, g->weights[COLUMN(j)]);
+#else
       fprintf(f, "%ld %ld 1\n", i + 1, COLUMN(j) + 1);
+#endif
     }
   }
 }
