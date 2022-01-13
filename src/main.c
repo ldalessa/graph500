@@ -32,6 +32,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+FILE* roots_file = NULL;
+
 extern oned_csr_graph g;
 
 static void print_mmio(int scale, oned_csr_graph* g, const char* name)
@@ -109,6 +111,15 @@ int main(int argc, char** argv) {
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     uint64_t seed1 = 2, seed2 = 3;
+
+    if (rank == 0) {
+        char const* rf = getenv("GRAPH500_ROOTSFILE");
+        if (rf) {
+            if ((roots_file = fopen(rf, "w")) == NULL) {
+                fprintf(stderr, "failed to open %s as the roots file, proceeding without recording\n", rf);
+            }
+        }
+    }
 
     const char* filename = getenv("TMPFILE");
 #ifdef SSSP
@@ -330,6 +341,9 @@ int main(int argc, char** argv) {
     if (argc > 3) {
       /* print_mmio(SCALE, &tg, argv[3]); */
       print_mmio(SCALE, &g, argv[3]);
+      if (roots_file) {
+        fclose(roots_file);
+      }
       return 0;
     }
 
@@ -621,5 +635,8 @@ int main(int argc, char** argv) {
 #endif
     cleanup_globals();
     aml_finalize(); //includes MPI_Finalize()
+    if (roots_file) {
+      fclose(roots_file);
+    }
     return 0;
 }
